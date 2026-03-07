@@ -1,0 +1,20 @@
+# FastAPI + ASGI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Data & computation
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Crypto exchange API
+ccxt>=4.0.0
+
+# JIT compilation (strategy_engine, scanner)
+numba>=0.58.0
+
+# WebSocket client (ws_monitor)
+websockets>=12.0
+
+# CORS middleware (included with FastAPI, listed for clarity)
+# starlette (auto-installed with fastapi)
