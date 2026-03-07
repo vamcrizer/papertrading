@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Secrets / keys
+.env.local
+secrets.json
+*.key
+
+# Runtime data files (paper trade state — do NOT commit live trade data)
+paper_trades.json
+strategy_trades_*.json
+fund_cache.json
+*_cache.json
+
+# Logs
+*.log
+logs/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+
+# Data files (large CSVs / HDF5)
+*.csv
+*.h5
+*.hdf5
+*.parquet
+*.feather
+catboost_info/
+
+# Jupyter
+.ipynb_checkpoints/
