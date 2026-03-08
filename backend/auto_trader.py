@@ -111,6 +111,10 @@ def run_cycle():
                     vote=sig.get("vote", 0),
                     auto=True,
                 )
+                if "error" in trade:
+                    result["errors"].append(f"{coin}: {trade['error']}")
+                    logger.warning(f"REJECTED {coin}: {trade['error']}")
+                    continue
                 result["opened"].append({
                     "symbol": coin,
                     "direction": sig["direction"],

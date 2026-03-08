@@ -108,6 +108,18 @@ def _set_cooldown(coin: str, reason: str):
 
 def open_trade(symbol: str, direction: str, entry_price: float, sl: float, tp: float,
                signals: list = None, vote: int = 0, auto: bool = False):
+    # Validate SL/TP direction
+    if direction.upper() == "LONG":
+        if tp <= entry_price:
+            return {"error": f"LONG TP ({tp}) must be > entry ({entry_price})"}
+        if sl >= entry_price:
+            return {"error": f"LONG SL ({sl}) must be < entry ({entry_price})"}
+    elif direction.upper() == "SHORT":
+        if tp >= entry_price:
+            return {"error": f"SHORT TP ({tp}) must be < entry ({entry_price})"}
+        if sl <= entry_price:
+            return {"error": f"SHORT SL ({sl}) must be > entry ({entry_price})"}
+
     data = _load()
     equity = get_equity()
     margin = equity * ALLOC_PCT

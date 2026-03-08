@@ -116,6 +116,18 @@ def _set_cooldown(strategy_id: str, reason: str):
 def open_trade(strategy_id: str, symbol: str, direction: str,
                entry_price: float, sl: float, tp: float,
                signal_type: str = "", auto: bool = True) -> dict:
+    # Validate SL/TP direction
+    if direction.upper() == "LONG":
+        if tp <= entry_price:
+            return {"error": f"LONG TP ({tp}) must be > entry ({entry_price})"}
+        if sl >= entry_price:
+            return {"error": f"LONG SL ({sl}) must be < entry ({entry_price})"}
+    elif direction.upper() == "SHORT":
+        if tp >= entry_price:
+            return {"error": f"SHORT TP ({tp}) must be < entry ({entry_price})"}
+        if sl <= entry_price:
+            return {"error": f"SHORT SL ({sl}) must be > entry ({entry_price})"}
+
     from strategy_engine import STRATEGIES
     cfg = STRATEGIES.get(strategy_id, {})
 

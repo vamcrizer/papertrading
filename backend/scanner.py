@@ -67,7 +67,7 @@ _candle_cache = {}  # name -> {data, ts}
 _CANDLE_TTL = 300   # 5 min cache (H1 candles don't change fast)
 
 
-def _fetch_one_coin(exchange, name, sym):
+def _fetch_one_coin(name, sym):
     """Fetch candles for a single coin (called in thread pool)."""
     now = time.time()
     cached = _candle_cache.get(name)
@@ -75,6 +75,7 @@ def _fetch_one_coin(exchange, name, sym):
         return name, cached['data'], None
 
     try:
+        exchange = ccxt.binance({'enableRateLimit': True})
         ohlcv = exchange.fetch_ohlcv(sym, '1h', limit=300)
         data = {
             'C': np.array([x[4] for x in ohlcv], dtype=np.float64),
@@ -171,8 +172,6 @@ def gen_ensemble_live(C, H, L, live_price, cd=24):
 
 def scan_all():
     """Scan all 15 coins — parallel fetch, WebSocket prices."""
-    exchange = ccxt.binance({'enableRateLimit': True})
-
     # Get live prices from WebSocket (instant, no API calls)
     try:
         import ws_monitor
@@ -183,7 +182,7 @@ def scan_all():
     # Parallel candle fetch
     coin_data = {}
     with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = {pool.submit(_fetch_one_coin, exchange, name, sym): name
+        futures = {pool.submit(_fetch_one_coin, name, sym): name
                    for name, sym in SYMBOLS.items()}
         for f in as_completed(futures):
             name, data, error = f.result()
@@ -238,6 +237,20 @@ def scan_all():
             else:
                 sl_price = live_price * (1 - sl_pct / 100)
                 tp_price = live_price * (1 + tp_pct / 100)
+
+            # Validate TP/SL direction sanity
+            if direction == 'SHORT' and tp_price >= live_price:
+                logger.warning(f"{name}: SHORT TP ({tp_price:.4f}) >= price ({live_price:.4f}), fixing")
+                tp_price = live_price * (1 - 0.03)
+            elif direction == 'LONG' and tp_price <= live_price:
+                logger.warning(f"{name}: LONG TP ({tp_price:.4f}) <= price ({live_price:.4f}), fixing")
+                tp_price = live_price * (1 + 0.03)
+            if direction == 'SHORT' and sl_price <= live_price:
+                logger.warning(f"{name}: SHORT SL ({sl_price:.4f}) <= price ({live_price:.4f}), fixing")
+                sl_price = live_price * (1 + 0.03)
+            elif direction == 'LONG' and sl_price >= live_price:
+                logger.warning(f"{name}: LONG SL ({sl_price:.4f}) >= price ({live_price:.4f}), fixing")
+                sl_price = live_price * (1 - 0.03)
 
             reasons = []
             if abs(vote) >= 3: reasons.append('StrongVote')
