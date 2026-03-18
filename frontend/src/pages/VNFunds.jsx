@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8006'
 
 const HORIZON_COLORS = {
     '1m': '#f97316', '3m': '#eab308', '6m': '#22c55e',

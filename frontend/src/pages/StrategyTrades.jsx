@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8006'
 
 const STRATEGY_COLORS = {
   supertrend_btc: '#f59e0b',   // amber
