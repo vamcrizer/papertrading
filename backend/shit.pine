@@ -1,0 +1,168 @@
+//@version=5
+strategy("ST Break + Touch – 2023 to Now",
+     overlay = true,
+     initial_capital = 10000,
+     pyramiding = 0)
+
+// ======================================
+// BACKTEST FROM 2023
+// ======================================
+startDate = timestamp(2023, 01, 01, 00, 00)
+inTradeWindow = time >= startDate
+
+// ======================================
+// INPUTS
+// ======================================
+grp_st = "1. Supertrend"
+atrPeriod = input.int(170, "ATR Length", group=grp_st)
+factor    = input.float(6.1, "Factor", group=grp_st)
+
+grp_trade = "2. Trade Rules"
+cooldown  = input.int(15, "Cooldown bars", group=grp_trade)
+
+grp_risk  = "3. Risk & Leverage"
+riskPct   = input.float(1.5, "Risk % per Trade", step=0.1, group=grp_risk)
+max_lev   = input.float(5.0, "Max Leverage Cap (x)", group=grp_risk)
+sl_buffer = input.float(0.5, "SL Buffer (ATR)", group=grp_risk)
+tp_rr     = input.float(3.0, "Take Profit (R:R)", step=0.1, group=grp_risk)
+
+// ======================================
+// SUPER TREND
+// ======================================
+[st, dir] = ta.supertrend(factor, atrPeriod)
+
+isUpTrend   = dir < 0
+isDownTrend = dir > 0
+
+upLine   = isUpTrend   ? st : na
+downLine = isDownTrend ? st : na
+
+pUp   = plot(upLine,   color=color.green, style=plot.style_linebr, linewidth=2)
+pDown = plot(downLine, color=color.red,   style=plot.style_linebr, linewidth=2)
+
+mid = plot((open+close)/2, display=display.none)
+fill(mid, pUp,   color=color.new(color.green,90))
+fill(mid, pDown, color=color.new(color.red,90))
+
+bgcolor(isUpTrend ? color.new(color.green,92)
+                  : color.new(color.red,92))
+
+atr = ta.atr(14)
+
+// ======================================
+// ENTRY LOGIC
+// ======================================
+breakBuy  = ta.change(dir) < 0
+breakSell = ta.change(dir) > 0
+
+firstTouchBuy  = isUpTrend and low <= st and close > st and low[1] > st[1]
+firstTouchSell = isDownTrend and high >= st and close < st and high[1] < st[1]
+
+buySignal  = breakBuy  or firstTouchBuy
+sellSignal = breakSell or firstTouchSell
+
+// ======================================
+// COOLDOWN
+// ======================================
+var int lastTradeBar = na
+canTrade = na(lastTradeBar) or bar_index - lastTradeBar >= cooldown
+
+// ======================================
+// POSITION SIZE
+// ======================================
+riskMoney = strategy.equity * riskPct / 100
+
+var float buyR  = na
+var float sellR = na
+var float buySL = na
+var float sellSL = na
+var float buyTP = na
+var float sellTP = na
+
+// ======================================
+// ENTRY
+// ======================================
+if strategy.position_size == 0 and canTrade and inTradeWindow
+
+    if buySignal
+        entry = close
+        sl    = low - atr * sl_buffer
+        r     = entry - sl
+        if r > 0
+            rawQty = riskMoney / r
+            levCap = (strategy.equity * max_lev) / close
+            qty    = math.min(rawQty, levCap)
+
+            buyR  := r
+            buySL := sl
+            buyTP := entry + r * tp_rr
+
+            strategy.entry("BUY", strategy.long, qty=qty)
+            lastTradeBar := bar_index
+
+    if sellSignal
+        entry = close
+        sl    = high + atr * sl_buffer
+        r     = sl - entry
+        if r > 0
+            rawQty = riskMoney / r
+            levCap = (strategy.equity * max_lev) / close
+            qty    = math.min(rawQty, levCap)
+
+            sellR  := r
+            sellSL := sl
+            sellTP := entry - r * tp_rr
+
+            strategy.entry("SELL", strategy.short, qty=qty)
+            lastTradeBar := bar_index
+
+// ======================================
+// BREAK EVEN AFTER 1R
+// ======================================
+if strategy.position_size > 0 and not na(buyR)
+    if high >= strategy.position_avg_price + buyR
+        buySL := strategy.position_avg_price
+    strategy.exit("BUY EXIT", "BUY", stop=buySL, limit=buyTP)
+
+if strategy.position_size < 0 and not na(sellR)
+    if low <= strategy.position_avg_price - sellR
+        sellSL := strategy.position_avg_price
+    strategy.exit("SELL EXIT", "SELL", stop=sellSL, limit=sellTP)
+
+// ======================================
+// STATS FROM 2023
+// ======================================
+var int beCount = 0
+var int slCount = 0
+var int totalTrades = 0
+
+newClosed = strategy.closedtrades > strategy.closedtrades[1]
+
+if newClosed
+    tradeTime = strategy.closedtrades.exit_time(strategy.closedtrades - 1)
+
+    if tradeTime >= startDate
+        totalTrades += 1
+        lastProfit = strategy.closedtrades.profit(strategy.closedtrades - 1)
+
+        if math.abs(lastProfit) < strategy.initial_capital * 0.0001
+            beCount += 1
+        else if lastProfit < 0
+            slCount += 1
+
+// ======================================
+// TABLE
+// ======================================
+var table statTbl = table.new(position.top_right, 2, 4, bgcolor=color.new(color.black,80))
+
+if barstate.islast
+    table.cell(statTbl, 0, 0, "2023 → Now", text_color=color.white)
+
+    table.cell(statTbl, 0, 1, "Total Trades", text_color=color.white)
+    table.cell(statTbl, 1, 1, str.tostring(totalTrades))
+
+    table.cell(statTbl, 0, 2, "Break Even", text_color=color.yellow)
+    table.cell(statTbl, 1, 2, str.tostring(beCount))
+
+    table.cell(statTbl, 0, 3, "Stop Loss", text_color=color.red)
+    table.cell(statTbl, 1, 3, str.tostring(slCount))

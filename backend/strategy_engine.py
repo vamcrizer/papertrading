@@ -17,7 +17,7 @@ from numba import njit
 logger = logging.getLogger("strategy_engine")
 
 # ─────────────────────────────────────────────────────────────
-# Strategy registry
+#                   Strategy registry
 # ─────────────────────────────────────────────────────────────
 
 STRATEGIES = {
@@ -27,15 +27,16 @@ STRATEGIES = {
         "symbol": "BTC/USDT:USDT",
         "coin": "BTC",
         "timeframe": "1h",
-        "atr_period": 110,
-        "factor": 5.3,
-        "cooldown": 36,
-        "sl_buffer": 1.0,
-        "tp_ratio": 1.1,
+        "atr_period": 170,
+        "factor": 6.1,
+        "cooldown": 15,
+        "sl_buffer": 0.25,  # ATR multiplier for SL distance
+        "tp_ratio": 2.24,   # R:R take profit multiplier
+        "break_even": True, # Move SL to entry after price hits +1R (Pine feature)
         "risk_pct": 1.5,
-        "max_leverage": 10.0,
+        "max_leverage": 5,
         "taker_fee": 0.00035,
-        "initial_capital": 1000.0,
+        "initial_capital": 10000.0,
     },
     "supertrend_eth": {
         "id": "supertrend_eth",
@@ -43,21 +44,22 @@ STRATEGIES = {
         "symbol": "ETH/USDT:USDT",
         "coin": "ETH",
         "timeframe": "1h",
-        "atr_period": 110,
-        "factor": 3.5,
-        "cooldown": 36,
-        "sl_buffer": 1.0,
-        "tp_ratio": 1.1,
+        "atr_period": 170,
+        "factor": 6.1,
+        "cooldown": 15,
+        "sl_buffer": 0.25,  # ATR multiplier for SL distance
+        "tp_ratio": 2.24,   # R:R take profit multiplier
+        "break_even": True, # Move SL to entry after price hits +1R (Pine feature)
         "risk_pct": 1.5,
-        "max_leverage": 10.0,
+        "max_leverage": 5,
         "taker_fee": 0.00035,
-        "initial_capital": 1000.0,
+        "initial_capital": 10000.0,
     },
 }
 
 
 # ─────────────────────────────────────────────────────────────
-# Numba JIT: ATR + Supertrend
+#                  Numba JIT: ATR + Supertrend
 # ─────────────────────────────────────────────────────────────
 
 @njit
@@ -117,7 +119,7 @@ def _calc_supertrend(high, low, close, atr, factor):
 
 
 # ─────────────────────────────────────────────────────────────
-# OHLCV cache
+#                         OHLCV cache
 # ─────────────────────────────────────────────────────────────
 
 _ohlcv_cache = {}   # strategy_id -> {data, ts}
@@ -163,7 +165,7 @@ def _fetch_ohlcv(strategy_id: str) -> dict | None:
 
 
 # ─────────────────────────────────────────────────────────────
-# Signal generation
+#                       Signal generation
 # ─────────────────────────────────────────────────────────────
 
 def get_signal(strategy_id: str) -> dict:
