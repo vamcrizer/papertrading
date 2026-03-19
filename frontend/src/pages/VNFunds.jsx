@@ -1,138 +1,148 @@
 import { useState, useEffect } from 'react'
+import { getVNFunds } from '@/api/market'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8006'
+const HORIZON_CLASSES = {
+  '1m': 'bg-orange-500 text-white shadow-orange-500/20', 
+  '3m': 'bg-yellow-500 text-white shadow-yellow-500/20', 
+  '6m': 'bg-emerald-500 text-white shadow-emerald-500/20',
+  '1y': 'bg-cyan-500 text-white shadow-cyan-500/20', 
+  '2y': 'bg-blue-500 text-white shadow-blue-500/20', 
+  '3y': 'bg-purple-500 text-white shadow-purple-500/20', 
+  '5y': 'bg-pink-500 text-white shadow-pink-500/20',
+}
 
-const HORIZON_COLORS = {
-    '1m': '#f97316', '3m': '#eab308', '6m': '#22c55e',
-    '1y': '#06b6d4', '2y': '#3b82f6', '3y': '#8b5cf6', '5y': '#ec4899',
+const BORDER_CLASSES = {
+  '1m': 'border-l-orange-500', 
+  '3m': 'border-l-yellow-500', 
+  '6m': 'border-l-emerald-500',
+  '1y': 'border-l-cyan-500', 
+  '2y': 'border-l-blue-500', 
+  '3y': 'border-l-purple-500', 
+  '5y': 'border-l-pink-500',
 }
 
 export default function VNFunds() {
-    const [data, setData] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [selected, setSelected] = useState(null)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState(null)
 
-    useEffect(() => {
-        fetch(`${API}/api/vn-funds`)
-            .then(r => r.json())
-            .then(d => { setData(d); setLoading(false); if (d.funds?.length) setSelected(d.funds[0].id) })
-            .catch(() => setLoading(false))
-    }, [])
+  useEffect(() => {
+    getVNFunds()
+      .then(d => {
+        setData(d)
+        setLoading(false)
+        if (d.funds?.length) setSelected(d.funds[0].id)
+      })
+      .catch(() => setLoading(false))
+  }, [])
 
-    if (loading) return <div style={{ padding: 32, color: '#94a3b8' }}>Loading...</div>
-    if (!data?.funds) return <div style={{ padding: 32, color: '#f87171' }}>Error</div>
+  if (loading) return <div className="p-8 text-text-secondary">Loading...</div>
+  if (!data?.funds) return <div className="p-8 text-red-500">Error</div>
 
-    const fund = data.funds.find(f => f.id === selected)
+  const fund = data.funds.find(f => f.id === selected)
+  const borderClass = BORDER_CLASSES[selected] || 'border-l-brand'
 
-    return (
-        <div style={{ padding: '24px 32px', maxWidth: 1100 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>
-                VN Stocks — Quy Khuyen Dau Tu
-            </h2>
-            <p style={{ color: '#64748b', marginBottom: 20, fontSize: 13 }}>
-                Danh muc goi y theo thoi han dau tu. Model: Simple Multi-Factor (Sharpe 0.94, p&lt;5%)
-            </p>
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-bold text-white tracking-tight">VN Stocks — Quy Khuyen Dau Tu</h2>
+        <p className="text-sm font-medium text-text-secondary">
+          Danh muc goi y theo thoi han dau tu. Model: Simple Multi-Factor (Sharpe 0.94, p&lt;5%)
+        </p>
+      </div>
 
-            {/* Horizon tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-                {data.funds.map(f => (
-                    <button key={f.id} onClick={() => setSelected(f.id)} style={{
-                        padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        fontSize: 13, fontWeight: 600,
-                        background: selected === f.id ? (HORIZON_COLORS[f.id] || '#3b82f6') : '#1e293b',
-                        color: selected === f.id ? '#fff' : '#94a3b8',
-                        transition: 'all 0.2s',
-                    }}>
-                        {f.name}
-                    </button>
-                ))}
+      <div className="flex gap-2 flex-wrap">
+        {data.funds.map(f => (
+          <button 
+            key={f.id} 
+            onClick={() => setSelected(f.id)} 
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg ${
+              selected === f.id 
+                ? HORIZON_CLASSES[f.id] 
+                : 'bg-card text-text-secondary hover:bg-white/5'
+            }`}
+          >
+            {f.name}
+          </button>
+        ))}
+      </div>
+
+      {fund && (
+        <>
+          <div className={`rounded-[20px] bg-card p-6 border border-white/5 shadow-xl border-l-4 ${borderClass}`}>
+            <div className="flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">
+                  {fund.name} — {fund.description}
+                </h3>
+                <div className="text-sm text-text-secondary">
+                  {fund.stats.num_picks} co phieu | {fund.stats.pct_uptrend}% uptrend | Avg Vol: {fund.stats.avg_volatility}%
+                </div>
+              </div>
+              <div className={`px-4 py-2 rounded-xl text-center ${
+                fund.stats.avg_momentum_3m > 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'
+              }`}>
+                <div className="text-xs text-text-secondary uppercase tracking-wider mb-1">Avg Momentum 3M</div>
+                <div className={`text-xl font-bold ${
+                  fund.stats.avg_momentum_3m > 0 ? 'text-emerald-500' : 'text-red-500'
+                }`}>
+                  {fund.stats.avg_momentum_3m > 0 ? '+' : ''}{fund.stats.avg_momentum_3m}%
+                </div>
+              </div>
             </div>
+          </div>
 
-            {fund && (
-                <>
-                    <div style={{
-                        background: '#1e293b', borderRadius: 12, padding: 20,
-                        borderLeft: `4px solid ${HORIZON_COLORS[fund.id] || '#3b82f6'}`,
-                        marginBottom: 20,
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
-                                    {fund.name} — {fund.description}
-                                </h3>
-                                <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                                    {fund.stats.num_picks} co phieu | {fund.stats.pct_uptrend}% uptrend | Avg Vol: {fund.stats.avg_volatility}%
-                                </div>
-                            </div>
-                            <div style={{
-                                background: fund.stats.avg_momentum_3m > 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                                padding: '8px 16px', borderRadius: 8, textAlign: 'center',
-                            }}>
-                                <div style={{ fontSize: 11, color: '#64748b' }}>Avg Momentum 3M</div>
-                                <div style={{
-                                    fontSize: 20, fontWeight: 700,
-                                    color: fund.stats.avg_momentum_3m > 0 ? '#22c55e' : '#ef4444'
-                                }}>
-                                    {fund.stats.avg_momentum_3m > 0 ? '+' : ''}{fund.stats.avg_momentum_3m}%
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+          <div className="rounded-[20px] bg-card border border-white/5 shadow-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs text-text-secondary uppercase tracking-wider text-left bg-white/5">
+                    <th className="py-3 pl-4">#</th>
+                    <th className="py-3">Ma</th>
+                    <th className="py-3 text-right">Gia (VND)</th>
+                    <th className="py-3 text-right">3M</th>
+                    <th className="py-3 text-right">1Y</th>
+                    <th className="py-3 text-right">Vol</th>
+                    <th className="py-3 text-center pr-4">Trend</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm font-medium">
+                  {fund.picks.map((p, i) => (
+                    <tr key={p.symbol} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                      <td className="py-4 pl-4 text-text-secondary">{i + 1}</td>
+                      <td className="py-4 font-bold text-white">{p.symbol}</td>
+                      <td className="py-4 text-right font-mono text-text-secondary">{p.price.toLocaleString()}</td>
+                      <td className={`py-4 text-right font-bold ${p.r3m > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {p.r3m > 0 ? '+' : ''}{p.r3m}%
+                      </td>
+                      <td className={`py-4 text-right ${p.r1y > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {p.r1y > 0 ? '+' : ''}{p.r1y}%
+                      </td>
+                      <td className="py-4 text-right text-text-secondary">{p.vol}%</td>
+                      <td className={`py-4 text-center pr-4 font-bold ${p.trend === 'UP' ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {p.trend}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-                    {/* Picks table */}
-                    <div style={{ background: '#1e293b', borderRadius: 10, overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid #334155' }}>
-                                    <th style={th}>#</th>
-                                    <th style={th}>Ma</th>
-                                    <th style={{ ...th, textAlign: 'right' }}>Gia (VND)</th>
-                                    <th style={{ ...th, textAlign: 'right' }}>3M</th>
-                                    <th style={{ ...th, textAlign: 'right' }}>1Y</th>
-                                    <th style={{ ...th, textAlign: 'right' }}>Vol</th>
-                                    <th style={{ ...th, textAlign: 'center' }}>Trend</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {fund.picks.map((p, i) => (
-                                    <tr key={p.symbol} style={{ borderBottom: '1px solid #1a2332' }}>
-                                        <td style={td}>{i + 1}</td>
-                                        <td style={{ ...td, fontWeight: 700, color: '#f1f5f9' }}>{p.symbol}</td>
-                                        <td style={{ ...td, textAlign: 'right' }}>{p.price.toLocaleString()}</td>
-                                        <td style={{ ...td, textAlign: 'right', color: p.r3m > 0 ? '#22c55e' : '#ef4444' }}>
-                                            {p.r3m > 0 ? '+' : ''}{p.r3m}%
-                                        </td>
-                                        <td style={{ ...td, textAlign: 'right', color: p.r1y > 0 ? '#22c55e' : '#ef4444' }}>
-                                            {p.r1y > 0 ? '+' : ''}{p.r1y}%
-                                        </td>
-                                        <td style={{ ...td, textAlign: 'right' }}>{p.vol}%</td>
-                                        <td style={{
-                                            ...td, textAlign: 'center',
-                                            color: p.trend === 'UP' ? '#22c55e' : '#ef4444'
-                                        }}>{p.trend}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div style={{ color: '#475569', fontSize: 11, marginTop: 12 }}>
-                        <div style={{ marginBottom: 6 }}>
-                            <span style={{ color: '#f59e0b', fontWeight: 600 }}>
-                                {'🔒'} Locked: {fund.locked_date || 'N/A'}
-                            </span>
-                            <span style={{ marginLeft: 16, color: '#64748b' }}>
-                                Next rebalance: {fund.next_rebalance || 'N/A'}
-                            </span>
-                        </div>
-                        Model: Simple Multi-Factor (momentum + vol + SMA trend). Sharpe 0.94, Monte Carlo p=3.5%.
-                        Picks co dinh moi thang, khong thay doi giua thang. Khong phai loi khuyen dau tu chinh thuc.
-                    </div>
-                </>
-            )}
-        </div>
-    )
+          <div className="text-xs text-text-secondary p-2 bg-white/5 rounded-xl border border-white/5">
+            <div className="mb-2 flex gap-4">
+              <span className="text-yellow-500 font-bold">
+                <i className="fas fa-lock mr-1"></i>Locked: {fund.locked_date || 'N/A'}
+              </span>
+              <span>
+                Next rebalance: {fund.next_rebalance || 'N/A'}
+              </span>
+            </div>
+            Model: Simple Multi-Factor (momentum + vol + SMA trend). Sharpe 0.94, Monte Carlo p=3.5%.
+            Picks co dinh moi thang, khong thay doi giua thang. Khong phai loi khuyen dau tu chinh thuc.
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
-
-const th = { padding: '10px 14px', textAlign: 'left', fontSize: 12, color: '#64748b', fontWeight: 600 }
-const td = { padding: '10px 14px', fontSize: 13, color: '#94a3b8' }

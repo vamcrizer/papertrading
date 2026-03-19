@@ -1,128 +1,138 @@
 import { useState, useEffect } from 'react'
+import { getGold } from '@/api/market'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8006'
+const REC_CLASSES = {
+  BUY: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500',
+  WAIT: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500',
+  SELL: 'bg-red-500/10 border-red-500/20 text-red-500',
+}
+
+const REC_BORDER_CLASSES = {
+  BUY: 'border-emerald-500 text-emerald-500',
+  WAIT: 'border-yellow-500 text-yellow-500',
+  SELL: 'border-red-500 text-red-500',
+}
 
 export default function Gold() {
-    const [data, setData] = useState(null)
-    const [loading, setLoading] = useState(true)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        fetch(`${API}/api/gold`)
-            .then(r => r.json())
-            .then(d => { setData(d); setLoading(false) })
-            .catch(() => setLoading(false))
-    }, [])
+  useEffect(() => {
+    getGold()
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
-    if (loading) return <div style={{ padding: 32, color: '#94a3b8' }}>Loading metals data...</div>
-    if (!data || !data.metals) return <div style={{ padding: 32, color: '#f87171' }}>Error loading data</div>
+  if (loading) return <div className="p-8 text-text-secondary">Loading metals data...</div>
+  if (!data || !data.metals) return <div className="p-8 text-red-500">Error loading data</div>
 
-    return (
-        <div style={{ padding: '24px 32px', maxWidth: 1100 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>
-                Metals Advisory
-            </h2>
-            <p style={{ color: '#64748b', marginBottom: 24, fontSize: 14 }}>
-                Physical precious metals buying advisor — NOT for trading. B&H beats timing for metals.
-            </p>
-
-            {data.metals.map(m => <MetalCard key={m.metal} m={m} />)}
-        </div>
-    )
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-bold text-white tracking-tight">Metals Advisory</h2>
+        <p className="text-sm font-medium text-text-secondary">
+          Physical precious metals buying advisor — NOT for trading. B&H beats timing for metals.
+        </p>
+      </div>
+      
+      <div className="flex flex-col gap-6">
+        {data.metals.map(m => <MetalCard key={m.metal} m={m} />)}
+      </div>
+    </div>
+  )
 }
 
 function MetalCard({ m }) {
-    const recColor = m.recommendation === 'BUY' ? '#22c55e' : m.recommendation === 'WAIT' ? '#f59e0b' : '#ef4444'
-    const recBg = m.recommendation === 'BUY' ? 'rgba(34,197,94,0.08)' : m.recommendation === 'WAIT' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+  const recClass = REC_CLASSES[m.recommendation] || REC_CLASSES.WAIT
+  const recBorderClass = REC_BORDER_CLASSES[m.recommendation] || REC_BORDER_CLASSES.WAIT
+  const bt = m.backtest
 
-    const bt = m.backtest
-    return (
-        <div style={{ marginBottom: 32 }}>
-            {/* Header */}
-            <div style={{
-                background: recBg, border: `1px solid ${recColor}22`,
-                borderRadius: 12, padding: 20, marginBottom: 16,
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-                    <div>
-                        <div style={{ fontSize: 13, color: '#64748b' }}>{m.name} ({m.symbol})</div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#f1f5f9' }}>
-                            ${m.current_price?.toLocaleString()}
-                            <span style={{ fontSize: 13, color: '#64748b', marginLeft: 8 }}>{m.unit}</span>
-                        </div>
-                        {m.vnd_estimate > 0 && (
-                            <div style={{ fontSize: 14, color: '#94a3b8' }}>~{m.vnd_estimate} trieu VND/luong</div>
-                        )}
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{
-                            fontSize: 24, fontWeight: 800, color: recColor,
-                            padding: '10px 20px', borderRadius: 8,
-                            border: `2px solid ${recColor}`,
-                        }}>{m.recommendation}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Score: {m.score}</div>
-                    </div>
-                </div>
-                <div style={{ marginTop: 12, padding: 10, background: 'rgba(0,0,0,0.2)', borderRadius: 6 }}>
-                    <p style={{ color: '#e2e8f0', fontSize: 14, margin: 0 }}>{m.advice}</p>
-                </div>
+  return (
+    <div className="rounded-[20px] bg-card p-6 border border-white/5 shadow-xl">
+      <div className={`rounded-xl border p-5 mb-5 ${recClass}`}>
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">{m.name} ({m.symbol})</div>
+            <div className="text-3xl font-bold text-white">
+              ${m.current_price?.toLocaleString()}
+              <span className="text-sm font-medium opacity-60 ml-2">{m.unit}</span>
             </div>
-
-            {/* Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
-                {/* Reasons */}
-                <div style={{ background: '#1e293b', borderRadius: 8, padding: 14 }}>
-                    <h3 style={{ fontSize: 12, color: '#22c55e', fontWeight: 600, marginBottom: 10 }}>Reasons</h3>
-                    {m.reasons?.map((r, i) => (
-                        <div key={i} style={{ color: '#94a3b8', fontSize: 12, padding: '3px 0' }}>+ {r}</div>
-                    ))}
-                    {!m.reasons?.length && <div style={{ color: '#475569', fontSize: 12 }}>None</div>}
-                </div>
-
-                {/* Warnings */}
-                <div style={{ background: '#1e293b', borderRadius: 8, padding: 14 }}>
-                    <h3 style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600, marginBottom: 10 }}>Warnings</h3>
-                    {m.warnings?.map((w, i) => (
-                        <div key={i} style={{ color: '#f59e0b', fontSize: 12, padding: '3px 0' }}>! {w}</div>
-                    ))}
-                    {!m.warnings?.length && <div style={{ color: '#475569', fontSize: 12 }}>None</div>}
-                </div>
-
-                {/* Performance */}
-                <div style={{ background: '#1e293b', borderRadius: 8, padding: 14 }}>
-                    <h3 style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>Performance</h3>
-                    {m.history?.map((h, i) => (
-                        <Row key={i} label={h.period} value={`${h.return > 0 ? '+' : ''}${h.return}%`} color={h.return > 0 ? '#22c55e' : '#ef4444'} />
-                    ))}
-                </div>
-
-                {/* Model Validation */}
-                <div style={{ background: '#1e293b', borderRadius: 8, padding: 14 }}>
-                    <h3 style={{ fontSize: 12, color: '#818cf8', marginBottom: 10 }}>Model Validation</h3>
-                    {bt ? (
-                        <>
-                            <Row label="Signals" value={bt.total_signals} color="#94a3b8" />
-                            <Row label="BUY count" value={bt.buy_count} color="#22c55e" />
-                            {bt.buy_hit_rate_3m != null && <Row label="BUY hit 3M" value={`${bt.buy_hit_rate_3m}%`} color={bt.buy_hit_rate_3m > 55 ? '#22c55e' : '#f59e0b'} />}
-                            {bt.buy_avg_3m != null && <Row label="BUY avg 3M" value={`${bt.buy_avg_3m > 0 ? '+' : ''}${bt.buy_avg_3m}%`} color={bt.buy_avg_3m > 0 ? '#22c55e' : '#ef4444'} />}
-                            <Row label="B&H total" value={`${bt.bnh_total}%`} color="#94a3b8" />
-                            <Row label="Strategy" value={`${bt.strategy_total}%`} color={bt.strategy_total > bt.bnh_total ? '#22c55e' : '#f59e0b'} />
-                        </>
-                    ) : <div style={{ color: '#475569', fontSize: 12 }}>Insufficient data</div>}
-                </div>
+            {m.vnd_estimate > 0 && (
+              <div className="text-sm opacity-80 mt-1">~{m.vnd_estimate} trieu VND/luong</div>
+            )}
+          </div>
+          <div className="text-center">
+            <div className={`text-2xl font-extrabold px-6 py-2 rounded-lg border-2 ${recBorderClass}`}>
+              {m.recommendation}
             </div>
-
-            <div style={{ color: '#475569', fontSize: 11, marginTop: 8 }}>
-                Data: {m.data_points} days | Updated: {m.last_updated}
-            </div>
+            <div className="text-xs font-medium opacity-70 mt-1">Score: {m.score}</div>
+          </div>
         </div>
-    )
+        <div className="mt-4 p-3 bg-black/20 rounded-lg">
+          <p className="text-sm font-medium opacity-90"><i className="fas fa-info-circle mr-2"></i>{m.advice}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <h3 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-3">Reasons</h3>
+          {m.reasons?.map((r, i) => (
+            <div key={i} className="text-xs text-text-secondary py-1 flex gap-1">
+              <span className="text-emerald-500"><i className="fas fa-plus-circle"></i></span> {r}
+            </div>
+          ))}
+          {!m.reasons?.length && <div className="text-xs text-text-secondary">None</div>}
+        </div>
+        
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <h3 className="text-xs font-bold text-yellow-500 uppercase tracking-wider mb-3">Warnings</h3>
+          {m.warnings?.map((w, i) => (
+            <div key={i} className="text-xs text-text-secondary py-1 flex gap-1">
+              <span className="text-yellow-500"><i className="fas fa-exclamation-circle"></i></span> {w}
+            </div>
+          ))}
+          {!m.warnings?.length && <div className="text-xs text-text-secondary">None</div>}
+        </div>
+        
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Performance</h3>
+          {m.history?.map((h, i) => (
+            <Row 
+              key={i} 
+              label={h.period} 
+              value={`${h.return > 0 ? '+' : ''}${h.return}%`} 
+              valueClass={h.return > 0 ? 'text-emerald-500' : 'text-red-500'} 
+            />
+          ))}
+        </div>
+        
+        <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+          <h3 className="text-xs font-bold text-brand uppercase tracking-wider mb-3">Model Validation</h3>
+          {bt ? (
+            <div className="flex flex-col gap-1">
+              <Row label="Signals" value={bt.total_signals} valueClass="text-text-secondary" />
+              <Row label="BUY count" value={bt.buy_count} valueClass="text-emerald-500" />
+              {bt.buy_hit_rate_3m != null && <Row label="BUY hit 3M" value={`${bt.buy_hit_rate_3m}%`} valueClass={bt.buy_hit_rate_3m > 55 ? 'text-emerald-500' : 'text-yellow-500'} />}
+              {bt.buy_avg_3m != null && <Row label="BUY avg 3M" value={`${bt.buy_avg_3m > 0 ? '+' : ''}${bt.buy_avg_3m}%`} valueClass={bt.buy_avg_3m > 0 ? 'text-emerald-500' : 'text-red-500'} />}
+              <Row label="B&H total" value={`${bt.bnh_total}%`} valueClass="text-text-secondary" />
+              <Row label="Strategy" value={`${bt.strategy_total}%`} valueClass={bt.strategy_total > bt.bnh_total ? 'text-emerald-500' : 'text-yellow-500'} />
+            </div>
+          ) : <div className="text-xs text-text-secondary">Insufficient data</div>}
+        </div>
+      </div>
+      
+      <div className="text-[10px] text-text-secondary mt-2 px-2">
+        Data: {m.data_points} days | Updated: {m.last_updated}
+      </div>
+    </div>
+  )
 }
 
-function Row({ label, value, color }) {
-    return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
-            <span style={{ color: '#94a3b8', fontSize: 12 }}>{label}</span>
-            <span style={{ color, fontSize: 12, fontWeight: 600 }}>{value}</span>
-        </div>
-    )
+function Row({ label, value, valueClass }) {
+  return (
+    <div className="flex justify-between items-center py-0.5">
+      <span className="text-xs text-text-secondary">{label}</span>
+      <span className={`text-xs font-bold ${valueClass}`}>{value}</span>
+    </div>
+  )
 }

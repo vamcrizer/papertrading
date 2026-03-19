@@ -1,189 +1,192 @@
 import { useState, useEffect } from 'react'
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8006'
+import { toast } from 'sonner'
+import { Badge, Button, StatCard } from '@/components/ui'
+import { getSignals } from '@/api/signals'
+import { getVNStocks, getModels } from '@/api/market'
+import { openTrade } from '@/api/trades'
 
 export default function Dashboard() {
-    const [signals, setSignals] = useState(null)
-    const [vnStocks, setVnStocks] = useState(null)
-    const [models, setModels] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [placing, setPlacing] = useState(null)
+  const [signals, setSignals] = useState(null)
+  const [vnStocks, setVnStocks] = useState(null)
+  const [models, setModels] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [placing, setPlacing] = useState(null)
 
-    useEffect(() => {
-        Promise.all([
-            fetch(`${API}/api/signals`).then(r => r.json()).catch(() => null),
-            fetch(`${API}/api/vn-stocks`).then(r => r.json()).catch(() => null),
-            fetch(`${API}/api/models`).then(r => r.json()).catch(() => null),
-        ]).then(([sig, vn, mod]) => {
-            setSignals(sig); setVnStocks(vn); setModels(mod); setLoading(false)
-        })
-    }, [])
+  useEffect(() => {
+    Promise.all([getSignals(), getVNStocks(), getModels()])
+      .then(([sig, vn, mod]) => {
+        setSignals(sig); setVnStocks(vn); setModels(mod); setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
 
-    const openTrade = async (symbol, direction, price, sl, tp) => {
-        setPlacing(symbol + direction)
-        try {
-            await fetch(`${API}/api/trades`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ symbol, direction, entry_price: price, sl, tp, size_usd: 150 })
-            })
-            alert(`✅ ${direction} ${symbol} @ $${price} — SL: $${sl} / TP: $${tp}`)
-        } catch (e) { alert('❌ Error: ' + e.message) }
-        setPlacing(null)
-    }
+  const handleOpenTrade = async (symbol, direction, price, sl, tp) => {
+    setPlacing(symbol + direction)
+    try {
+      await openTrade({ symbol, direction, entry_price: price, sl, tp, size_usd: 150 })
+      toast.success(`${direction} ${symbol} @ $${price} — SL: $${sl} / TP: $${tp}`)
+    } catch (e) { toast.error('Error: ' + e.message) }
+    setPlacing(null)
+  }
 
-    const activeSignals = signals?.signals?.filter(s => s.has_signal) || []
-    const longCount = activeSignals.filter(s => s.direction === 'LONG').length
-    const shortCount = activeSignals.filter(s => s.direction === 'SHORT').length
-    const top5 = vnStocks?.top5 || []
+  const activeSignals = signals?.signals?.filter(s => s.has_signal) || []
+  const longCount = activeSignals.filter(s => s.direction === 'LONG').length
+  const shortCount = activeSignals.filter(s => s.direction === 'SHORT').length
+  const top5 = vnStocks?.top5 || []
 
-    return (
-        <div>
-            <div className="page-header">
-                <h2>Dashboard</h2>
-                <p>Tổng quan thị trường và signals</p>
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
+        <p className="text-sm font-medium text-text-secondary">Market Overview & Active Signals</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <StatCard
+          label="Active Crypto Signals"
+          value={loading ? '—' : activeSignals.length}
+          change={!loading && (
+            <div className="flex gap-2 text-xs">
+              <span className="text-emerald-500 font-bold"><i className="fas fa-arrow-up mr-1"></i>{longCount} Long</span>
+              <span className="text-text-secondary">·</span>
+              <span className="text-red-500 font-bold"><i className="fas fa-arrow-down mr-1"></i>{shortCount} Short</span>
             </div>
-
-            <div className="card-grid">
-                <div className="stat-card">
-                    <div className="stat-label">Active Crypto Signals</div>
-                    <div className="stat-value" style={{ color: 'var(--accent)' }}>
-                        {loading ? '—' : activeSignals.length}
-                    </div>
-                    <div className="stat-change">
-                        {!loading && <>
-                            <span className="text-green">▲ {longCount} Long</span>
-                            {' · '}
-                            <span className="text-red">▼ {shortCount} Short</span>
-                        </>}
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-label">VN-Index</div>
-                    <div className="stat-value">
-                        {loading ? '—' : vnStocks?.vn_index?.price?.toLocaleString() || '—'}
-                    </div>
-                    <div className="stat-change">
-                        {vnStocks?.vn_index?.ytd != null && (
-                            <span className={vnStocks.vn_index.ytd >= 0 ? 'text-green' : 'text-red'}>
-                                YTD: {vnStocks.vn_index.ytd > 0 ? '+' : ''}{vnStocks.vn_index.ytd}%
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-label">Active Models</div>
-                    <div className="stat-value" style={{ color: 'var(--green)' }}>
-                        {loading ? '—' : models?.models?.filter(m => m.status === 'active').length || 0}
-                    </div>
-                    <div className="stat-change text-muted">
-                        {models?.models?.length || 0} total strategies
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-label">Market Status</div>
-                    <div className="stat-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className="pulse-dot"></span> Live
-                    </div>
-                    <div className="stat-change text-muted">
-                        {new Date().toLocaleString('vi-VN')}
-                    </div>
-                </div>
+          )}
+        />
+        <StatCard
+          label="VN-Index"
+          value={loading ? '—' : vnStocks?.vn_index?.price?.toLocaleString() || '—'}
+          change={vnStocks?.vn_index?.ytd != null && (
+            <span className={vnStocks.vn_index.ytd >= 0 ? 'text-emerald-500' : 'text-red-500'}>
+              YTD: {vnStocks.vn_index.ytd > 0 ? '+' : ''}{vnStocks.vn_index.ytd}%
+            </span>
+          )}
+        />
+        <StatCard
+          label="Active Models"
+          value={loading ? '—' : models?.models?.filter(m => m.status === 'active').length || 0}
+          valueClassName="text-emerald-500"
+          change={<span className="text-text-secondary">{models?.models?.length || 0} total strategies</span>}
+        />
+        <StatCard
+          label="Market Status"
+          value={
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <span>Live</span>
             </div>
+          }
+          change={<span className="text-text-secondary">{new Date().toLocaleString('vi-VN')}</span>}
+        />
+      </div>
 
-            {/* Active Crypto Signals */}
-            <div className="table-container" style={{ marginBottom: 24 }}>
-                <div className="table-header">
-                    <h3>⚡ Active Crypto Signals</h3>
-                    <span className="text-muted" style={{ fontSize: 12 }}>
-                        {signals?.time ? new Date(signals.time).toLocaleTimeString() : ''}
-                    </span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Asset</th>
-                            <th>Price</th>
-                            <th>Signal</th>
-                            <th>Vote</th>
-                            <th>Reasons</th>
-                            <th>SL</th>
-                            <th>TP</th>
-                            <th>Trade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            [1, 2, 3].map(i => (
-                                <tr key={i}><td colSpan={8}><div className="skeleton skeleton-row"></div></td></tr>
-                            ))
-                        ) : activeSignals.length === 0 ? (
-                            <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No active signals</td></tr>
-                        ) : activeSignals.map(s => (
-                            <tr key={s.symbol}>
-                                <td style={{ fontWeight: 700 }}>{s.symbol}</td>
-                                <td style={{ fontFamily: 'monospace' }}>${s.price?.toLocaleString()}</td>
-                                <td><span className={`badge badge-${s.direction?.toLowerCase()}`}>{s.direction}</span></td>
-                                <td style={{ fontWeight: 700, color: s.vote > 0 ? 'var(--green)' : 'var(--red)' }}>{s.vote > 0 ? '+' : ''}{s.vote}</td>
-                                <td><span className="text-muted" style={{ fontSize: 12 }}>{s.signals?.join(', ')}</span></td>
-                                <td className="text-red" style={{ fontFamily: 'monospace', fontSize: 12 }}>${s.sl?.toLocaleString()}</td>
-                                <td className="text-green" style={{ fontFamily: 'monospace', fontSize: 12 }}>${s.tp?.toLocaleString()}</td>
-                                <td>
-                                    <button
-                                        className="btn btn-primary"
-                                        style={{ padding: '4px 12px', fontSize: 12 }}
-                                        disabled={placing === s.symbol + s.direction}
-                                        onClick={() => openTrade(s.symbol, s.direction, s.price, s.sl, s.tp)}
-                                    >
-                                        {placing === s.symbol + s.direction ? '...' : `${s.direction} NOW`}
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* VN Stock Top Picks */}
-            <div className="table-container">
-                <div className="table-header">
-                    <h3>🇻🇳 VN Stock Top 5 Picks</h3>
-                    <span className="text-muted" style={{ fontSize: 12 }}>Multi-Factor Ranking</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Stock</th>
-                            <th>Price</th>
-                            <th>3M</th>
-                            <th>6M</th>
-                            <th>1Y</th>
-                            <th>Trend</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            [1, 2, 3].map(i => <tr key={i}><td colSpan={8}><div className="skeleton skeleton-row"></div></td></tr>)
-                        ) : top5.map((s, i) => (
-                            <tr key={s.symbol}>
-                                <td style={{ fontWeight: 700, color: 'var(--accent)' }}>#{i + 1}</td>
-                                <td style={{ fontWeight: 700 }}>{s.symbol}</td>
-                                <td>{s.price?.toLocaleString()} ₫</td>
-                                <td className={s.ret_3m >= 0 ? 'text-green' : 'text-red'}>{s.ret_3m > 0 ? '+' : ''}{s.ret_3m}%</td>
-                                <td className={s.ret_6m >= 0 ? 'text-green' : 'text-red'}>{s.ret_6m > 0 ? '+' : ''}{s.ret_6m}%</td>
-                                <td className={s.ret_1y >= 0 ? 'text-green' : 'text-red'}>{s.ret_1y > 0 ? '+' : ''}{s.ret_1y}%</td>
-                                <td><span className={`badge badge-${s.trend?.toLowerCase()}`}>{s.trend}</span></td>
-                                <td><span className="badge badge-buy">BUY</span></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+      {/* Active Crypto Signals */}
+      <div className="rounded-[20px] bg-card p-5 border border-white/5 shadow-xl">
+        <div className="flex items-center justify-between mb-6 px-2">
+          <h3 className="text-lg font-bold text-white"><i className="fas fa-bolt text-yellow-400 mr-2"></i>Active Crypto Signals</h3>
+          <span className="text-xs font-medium text-text-secondary bg-white/5 px-2 py-1 rounded-lg">
+            {signals?.time ? new Date(signals.time).toLocaleTimeString() : ''}
+          </span>
         </div>
-    )
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/10 text-xs text-text-secondary uppercase tracking-wider text-left">
+                <th className="pb-3 pl-2">Asset</th>
+                <th className="pb-3">Price</th>
+                <th className="pb-3">Signal</th>
+                <th className="pb-3">Vote</th>
+                <th className="pb-3">Reasons</th>
+                <th className="pb-3">SL</th>
+                <th className="pb-3">TP</th>
+                <th className="pb-3 text-right pr-2">Action</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm font-medium">
+              {loading ? (
+                [1, 2, 3].map(i => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={8} className="py-4"><div className="h-8 bg-white/5 rounded-lg w-full"></div></td>
+                  </tr>
+                ))
+              ) : activeSignals.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-text-secondary">
+                    No active signals at the moment
+                  </td>
+                </tr>
+              ) : activeSignals.map(s => (
+                <tr key={s.symbol} className="group border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                  <td className="py-4 pl-2 font-bold text-white">{s.symbol}</td>
+                  <td className="py-4 font-mono text-white font-bold">${s.price?.toLocaleString()}</td>
+                  <td className="py-4"><Badge variant={s.direction}>{s.direction}</Badge></td>
+                  <td className={`py-4 font-bold ${s.vote > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                    {s.vote > 0 ? '+' : ''}{s.vote}
+                  </td>
+                  <td className="py-4 text-xs text-text-secondary max-w-[200px] truncate">{s.signals?.join(', ')}</td>
+                  <td className="py-4 font-mono text-red-500 text-xs">${s.sl?.toLocaleString()}</td>
+                  <td className="py-4 font-mono text-emerald-500 text-xs">${s.tp?.toLocaleString()}</td>
+                  <td className="py-4 text-right pr-2">
+                    <Button
+                      variant="primary"
+                      className="!py-1.5 !px-3 !text-xs"
+                      isLoading={placing === s.symbol + s.direction}
+                      onClick={() => handleOpenTrade(s.symbol, s.direction, s.price, s.sl, s.tp)}
+                    >
+                      {s.direction}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* VN Stock Top Picks */}
+      <div className="rounded-[20px] bg-card p-5 border border-white/5 shadow-xl">
+        <div className="flex items-center justify-between mb-6 px-2">
+          <h3 className="text-lg font-bold text-white"><i className="fas fa-flag text-red-500 mr-2"></i>VN Stock Top 5 Picks</h3>
+          <span className="text-xs font-medium text-text-secondary">Multi-Factor Ranking</span>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/10 text-xs text-text-secondary uppercase tracking-wider text-left">
+                <th className="pb-3 pl-2">#</th>
+                <th className="pb-3">Stock</th>
+                <th className="pb-3">Price</th>
+                <th className="pb-3 text-right">3M</th>
+                <th className="pb-3 text-right">6M</th>
+                <th className="pb-3 text-right">1Y</th>
+                <th className="pb-3 text-center">Trend</th>
+                <th className="pb-3 text-right pr-2">Action</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm font-medium">
+              {loading ? (
+                [1, 2, 3].map(i => <tr key={i} className="animate-pulse"><td colSpan={8} className="py-4"><div className="h-8 bg-white/5 rounded-lg w-full"></div></td></tr>)
+              ) : top5.map((s, i) => (
+                <tr key={s.symbol} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                  <td className="py-4 pl-2 font-bold text-white">#{i + 1}</td>
+                  <td className="py-4 font-bold text-white">{s.symbol}</td>
+                  <td className="py-4 font-mono">{s.price?.toLocaleString()} ₫</td>
+                  <td className={`py-4 text-right ${s.ret_3m >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{s.ret_3m > 0 ? '+' : ''}{s.ret_3m}%</td>
+                  <td className={`py-4 text-right ${s.ret_6m >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{s.ret_6m > 0 ? '+' : ''}{s.ret_6m}%</td>
+                  <td className={`py-4 text-right ${s.ret_1y >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{s.ret_1y > 0 ? '+' : ''}{s.ret_1y}%</td>
+                  <td className="py-4 text-center"><Badge variant={s.trend}>{s.trend}</Badge></td>
+                  <td className="py-4 text-right pr-2"><Badge variant="buy">BUY</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
 }
